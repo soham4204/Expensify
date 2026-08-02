@@ -1,70 +1,100 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-interface Category {
-  id: number;
-  name: string;
-  description: string;
-}
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { MetricCard } from "@/components/dashboard/MetricCard";
+import { RecentTransactions, Transaction } from "@/components/dashboard/RecentTransactions";
+import { TransactionModal } from "@/components/dashboard/TransactionModal";
+import { Wallet, TrendingUp, CreditCard, Plus } from "lucide-react";
 
 export default function Home() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [summary, setSummary] = useState({ current_balance: 0, today_spending: 0, month_spending: 0 });
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Determine the API URL (use local FastAPI backend in development)
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-    async function fetchCategories() {
+    async function fetchData() {
       try {
-        const response = await fetch(`${API_URL}/categories/`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch categories");
+        const [summaryRes, expensesRes] = await Promise.all([
+          fetch(`${API_URL}/dashboard/summary`),
+          fetch(`${API_URL}/expenses/?limit=5`)
+        ]);
+
+        if (summaryRes.ok) {
+          setSummary(await summaryRes.json());
         }
-        const data = await response.json();
-        setCategories(data);
-      } catch (err: any) {
-        setError(err.message);
+        if (expensesRes.ok) {
+          const expensesData = await expensesRes.json();
+          setTransactions(expensesData.map((e: any) => ({
+            id: e.id,
+            title: e.merchant,
+            date: e.date,
+            amount: e.amount,
+            type: "expense",
+            category: "General" // Will link to categories later
+          })));
+        }
+      } catch (err) {
+        console.error("Failed to fetch dashboard data", err);
       } finally {
         setLoading(false);
       }
     }
 
-    fetchCategories();
+    fetchData();
   }, []);
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-24 bg-zinc-950 text-white">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
-        <h1 className="text-4xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
-          AI Expense Tracker
-        </h1>
-        
-        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl shadow-xl">
-          <h2 className="text-2xl font-semibold mb-4">Categories</h2>
-          
-          {loading && <p className="text-zinc-400 animate-pulse">Loading categories...</p>}
-          
-          {error && <p className="text-red-500">Error: {error}</p>}
-          
-          {!loading && !error && categories.length === 0 && (
-            <p className="text-zinc-500">No categories found. Start by adding one in the backend.</p>
-          )}
-
-          {!loading && !error && categories.length > 0 && (
-            <ul className="space-y-2">
-              {categories.map((cat) => (
-                <li key={cat.id} className="p-3 bg-zinc-800 rounded-lg flex justify-between items-center transition-colors hover:bg-zinc-700">
-                  <span className="font-medium">{cat.name}</span>
-                  {cat.description && <span className="text-zinc-400 text-xs">{cat.description}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
+    <DashboardLayout>
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Welcome back, Soham</h1>
+          <p className="text-muted-foreground mt-1">Here's your financial overview for this month.</p>
         </div>
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm"
+        >
+          <Plus size={18} />
+          New Transaction
+        </button>
       </div>
-    </main>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <MetricCard 
+          title="Total Balance" 
+          amount={`₹${summary.current_balance.toLocaleString()}`} 
+          trend="2.5%" 
+          isPositive={true} 
+          icon={<Wallet size={20} />} 
+        />
+        <MetricCard 
+          title="Today's Spending" 
+          amount={`₹${summary.today_spending.toLocaleString()}`} 
+          icon={<CreditCard size={20} />} 
+        />
+        <MetricCard 
+          title="Monthly Spending" 
+          amount={`₹${summary.month_spending.toLocaleString()}`} 
+          trend="12%" 
+          isPositive={false}
+          icon={<TrendingUp size={20} />} 
+        />
+      </div>
+
+      <RecentTransactions transactions={transactions} />
+      
+      <TransactionModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSubmit={() => {
+          // Placeholder for refreshing data
+          console.log("Transaction saved");
+        }}
+      />
+    </DashboardLayout>
   );
 }

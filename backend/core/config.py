@@ -4,6 +4,9 @@ from typing import Optional
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AI Expense Tracker"
     DATABASE_URL: str
+    UPSTASH_REDIS_REST_URL: Optional[str] = None
+    UPSTASH_REDIS_REST_TOKEN: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
