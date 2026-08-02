@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { X, Sparkles } from "lucide-react";
+import { useState, useRef } from "react";
+import { X, Sparkles, Upload, Camera } from "lucide-react";
 
 export function TransactionModal({ isOpen, onClose, onSubmit }: { isOpen: boolean; onClose: () => void; onSubmit: () => void }) {
-  const [mode, setMode] = useState<"manual" | "ai">("ai");
+  const [mode, setMode] = useState<"manual" | "ai" | "receipt">("ai");
   const [aiText, setAiText] = useState("");
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -21,11 +22,34 @@ export function TransactionModal({ isOpen, onClose, onSubmit }: { isOpen: boolea
         onSubmit();
         onClose();
         setAiText("");
-      } else {
-        console.error("Failed to parse transaction");
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setLoading(true);
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(`${API_URL}/ai/scan-receipt`, {
+        method: "POST",
+        body: formData
+      });
+      if (res.ok) {
+        onSubmit();
+        onClose();
+      }
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -46,19 +70,25 @@ export function TransactionModal({ isOpen, onClose, onSubmit }: { isOpen: boolea
         <div className="flex gap-2 mb-6 bg-muted p-1 rounded-xl">
           <button 
             onClick={() => setMode("ai")}
-            className={`flex-1 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors ${mode === "ai" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            className={`flex-1 py-2 rounded-lg font-medium text-xs flex items-center justify-center gap-1 transition-colors ${mode === "ai" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
           >
-            <Sparkles size={16} className={mode === "ai" ? "text-primary" : ""} /> AI Magic
+            <Sparkles size={14} className={mode === "ai" ? "text-primary" : ""} /> Text
+          </button>
+          <button 
+            onClick={() => setMode("receipt")}
+            className={`flex-1 py-2 rounded-lg font-medium text-xs flex items-center justify-center gap-1 transition-colors ${mode === "receipt" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Camera size={14} className={mode === "receipt" ? "text-primary" : ""} /> Scan
           </button>
           <button 
             onClick={() => setMode("manual")}
-            className={`flex-1 py-2 rounded-lg font-medium text-sm transition-colors ${mode === "manual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            className={`flex-1 py-2 rounded-lg font-medium text-xs transition-colors ${mode === "manual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
           >
             Manual
           </button>
         </div>
 
-        {mode === "ai" ? (
+        {mode === "ai" && (
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-2">Just type what you spent</label>
@@ -77,7 +107,41 @@ export function TransactionModal({ isOpen, onClose, onSubmit }: { isOpen: boolea
               {loading ? "Thinking..." : <><Sparkles size={18} /> Add automatically</>}
             </button>
           </div>
-        ) : (
+        )}
+        
+        {mode === "receipt" && (
+          <div className="space-y-4 flex flex-col items-center justify-center h-48 border-2 border-dashed border-border rounded-2xl bg-muted/30">
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+            />
+            {loading ? (
+              <div className="flex flex-col items-center text-primary">
+                <Sparkles size={32} className="animate-pulse mb-3" />
+                <span className="font-medium text-sm">Extracting details...</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center text-center px-6">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-3">
+                  <Upload size={20} />
+                </div>
+                <h3 className="font-medium text-sm mb-1">Upload Receipt</h3>
+                <p className="text-xs text-muted-foreground mb-4">Gemini Vision will automatically extract the merchant, amount, and date.</p>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-xs font-medium hover:bg-secondary/80 transition-colors"
+                >
+                  Choose Image
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {mode === "manual" && (
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Amount</label>

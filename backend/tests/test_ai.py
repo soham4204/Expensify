@@ -29,3 +29,30 @@ def test_ai_chat(mock_client):
     response = client.post("/ai/chat", json={"message": "How much did I spend this month?"})
     assert response.status_code == 200
     assert response.json()["reply"] == "You have spent 500 this month."
+
+@patch("api.routers.ai.client")
+def test_health_score(mock_client):
+    mock_response = MagicMock()
+    mock_response.text = '{"score": 85, "summary": "Great job managing expenses."}'
+    mock_client.models.generate_content.return_value = mock_response
+
+    response = client.get("/ai/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["score"] == 85
+    assert data["summary"] == "Great job managing expenses."
+
+def test_predictions():
+    response = client.get("/ai/predictions")
+    assert response.status_code == 200
+    assert "predicted_spend" in response.json()
+
+@patch("api.routers.ai.client")
+def test_generate_report(mock_client):
+    mock_response = MagicMock()
+    mock_response.text = "# Weekly Report\nLooking good!"
+    mock_client.models.generate_content.return_value = mock_response
+
+    response = client.get("/ai/generate-report")
+    assert response.status_code == 200
+    assert response.json()["markdown"] == "# Weekly Report\nLooking good!"

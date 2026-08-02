@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+import boto3
+import uuid
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel, Field
@@ -25,6 +27,19 @@ if settings.GEMINI_API_KEY:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
     except Exception as e:
         print(f"Failed to initialize Gemini Client: {e}")
+
+s3_client = None
+if settings.R2_ENDPOINT_URL:
+    try:
+        s3_client = boto3.client(
+            service_name="s3",
+            endpoint_url=settings.R2_ENDPOINT_URL,
+            aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+            region_name="auto", 
+        )
+    except Exception as e:
+        print(f"Failed to initialize S3 client: {e}")
 
 class ParseTransactionRequest(BaseModel):
     text: str
@@ -151,3 +166,147 @@ def ai_chat(req: ChatRequest, db: Session = Depends(get_db)):
         return ChatResponse(reply=response.text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/scan-receipt", response_model=Expense)
+async def scan_receipt(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not client:
+        raise HTTPException(status_code=500, detail="Gemini API Key not configured")
+        
+    contents = await file.read()
+    
+    file_url = None
+    if s3_client and settings.R2_BUCKET_NAME:
+        ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        filename = f"{uuid.uuid4()}.{ext}"
+        try:
+            s3_client.put_object(
+                Bucket=settings.R2_BUCKET_NAME,
+                Key=filename,
+                Body=contents,
+                ContentType=file.content_type
+            )
+            file_url = f"{settings.R2_ENDPOINT_URL}/{settings.R2_BUCKET_NAME}/{filename}"
+        except Exception as e:
+            print("Failed to upload to R2:", e)
+
+    prompt = "Extract the transaction details from this receipt image. Calculate the correct ISO date if present. Account name should default to 'Cash'. Notes should say 'Receipt Scan'."
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-pro',
+            contents=[
+                types.Part.from_bytes(data=contents, mime_type=file.content_type),
+                prompt
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ParsedData,
+            ),
+        )
+        
+        parsed = json.loads(response.text)
+        account = db.query(AccountModel).filter(AccountModel.name.ilike(f"%{parsed['account_name']}%")).first()
+        if not account:
+            account = db.query(AccountModel).first()
+            if not account:
+                account = AccountModel(name="Cash", balance=0.0, type="Cash")
+                db.add(account)
+                db.commit()
+                db.refresh(account)
+                
+        category = db.query(CategoryModel).filter(CategoryModel.name.ilike(f"%{parsed['category_name']}%")).first()
+        if not category:
+            category = CategoryModel(name=parsed['category_name'], description="AI Generated")
+            db.add(category)
+            db.commit()
+            db.refresh(category)
+            
+        try:
+            tx_date = date.fromisoformat(parsed['iso_date'])
+        except:
+            tx_date = date.today()
+
+        new_expense = ExpenseModel(
+            amount=parsed['amount'],
+            merchant=parsed['merchant'],
+            date=tx_date,
+            account_id=account.id,
+            category_id=category.id,
+            notes=parsed.get('notes', "AI receipt scan"),
+            receipt_url=file_url
+        )
+        
+        account.balance -= parsed['amount']
+        
+        db.add(new_expense)
+        db.commit()
+        db.refresh(new_expense)
+        
+        return new_expense
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class HealthScore(BaseModel):
+    score: int
+    summary: str
+
+class HealthResponseSchema(BaseModel):
+    score: int
+    summary: str
+
+@router.get("/health", response_model=HealthScore)
+def get_health_score(db: Session = Depends(get_db)):
+    if not client:
+        raise HTTPException(status_code=500, detail="Gemini API Key not configured")
+        
+    total_balance = db.query(func.sum(AccountModel.balance)).scalar() or 0.0
+    recent_expenses = db.query(func.sum(ExpenseModel.amount)).scalar() or 0.0
+    
+    prompt = f"Given a total balance of {total_balance} and recent expenses of {recent_expenses}, output a financial health score (0-100) and a brief 1-sentence summary as JSON."
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-pro',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=HealthResponseSchema,
+            )
+        )
+        data = json.loads(response.text)
+        return HealthScore(score=data['score'], summary=data['summary'])
+    except:
+        return HealthScore(score=50, summary="Unable to calculate at this time.")
+
+class Prediction(BaseModel):
+    predicted_spend: float
+
+@router.get("/predictions", response_model=Prediction)
+def get_predictions(db: Session = Depends(get_db)):
+    first_day = date.today().replace(day=1)
+    spent = db.query(func.sum(ExpenseModel.amount)).filter(ExpenseModel.date >= first_day).scalar() or 0.0
+    days_passed = date.today().day
+    if days_passed == 0:
+        days_passed = 1
+    daily_rate = spent / days_passed
+    return Prediction(predicted_spend=daily_rate * 30)
+
+class ReportResponse(BaseModel):
+    markdown: str
+
+@router.get("/generate-report", response_model=ReportResponse)
+def generate_weekly_report(db: Session = Depends(get_db)):
+    if not client:
+        raise HTTPException(status_code=500, detail="Gemini API Key not configured")
+        
+    last_week = date.today() - datetime.timedelta(days=7)
+    recent = db.query(ExpenseModel).filter(ExpenseModel.date >= last_week).all()
+    tx_str = "\n".join([f"- {t.date}: ₹{t.amount} at {t.merchant} (Category {t.category_id})" for t in recent])
+    
+    prompt = f"Generate a weekly financial report in Markdown format based on these expenses:\n{tx_str}\nInclude sections: Summary, Top Expenses, Warnings, Achievements. Make it sound encouraging."
+    
+    response = client.models.generate_content(
+        model='gemini-2.5-pro',
+        contents=prompt
+    )
+    return ReportResponse(markdown=response.text)

@@ -8,6 +8,7 @@ class ExpenseBase(BaseModel):
     date: date
     payment_method: Optional[str] = None
     notes: Optional[str] = None
+    receipt_url: Optional[str] = None
     category_id: Optional[int] = None
     account_id: int
 

@@ -11,6 +11,7 @@ class Expense(Base):
     date = Column(Date, nullable=False)
     payment_method = Column(String, nullable=True) # UPI, Cash, Card
     notes = Column(String, nullable=True)
+    receipt_url = Column(String, nullable=True)
     
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)

@@ -9,6 +9,8 @@ import { Wallet, TrendingUp, CreditCard, Plus } from "lucide-react";
 
 export default function Home() {
   const [summary, setSummary] = useState({ current_balance: 0, today_spending: 0, month_spending: 0 });
+  const [health, setHealth] = useState({ score: 0, summary: "Loading..." });
+  const [prediction, setPrediction] = useState({ predicted_spend: 0 });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -18,14 +20,16 @@ export default function Home() {
 
     async function fetchData() {
       try {
-        const [summaryRes, expensesRes] = await Promise.all([
+        const [summaryRes, expensesRes, healthRes, predRes] = await Promise.all([
           fetch(`${API_URL}/dashboard/summary`),
-          fetch(`${API_URL}/expenses/?limit=5`)
+          fetch(`${API_URL}/expenses/?limit=5`),
+          fetch(`${API_URL}/ai/health`),
+          fetch(`${API_URL}/ai/predictions`)
         ]);
 
-        if (summaryRes.ok) {
-          setSummary(await summaryRes.json());
-        }
+        if (summaryRes.ok) setSummary(await summaryRes.json());
+        if (healthRes.ok) setHealth(await healthRes.json());
+        if (predRes.ok) setPrediction(await predRes.json());
         if (expensesRes.ok) {
           const expensesData = await expensesRes.json();
           setTransactions(expensesData.map((e: any) => ({
@@ -34,7 +38,7 @@ export default function Home() {
             date: e.date,
             amount: e.amount,
             type: "expense",
-            category: "General" // Will link to categories later
+            category: "General"
           })));
         }
       } catch (err) {
@@ -63,7 +67,7 @@ export default function Home() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <MetricCard 
           title="Total Balance" 
           amount={`₹${summary.current_balance.toLocaleString()}`} 
@@ -83,6 +87,23 @@ export default function Home() {
           isPositive={false}
           icon={<TrendingUp size={20} />} 
         />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-6 rounded-2xl flex items-center justify-between">
+          <div>
+            <h3 className="text-primary font-semibold mb-1">Financial Health Score</h3>
+            <p className="text-sm text-muted-foreground">{health.summary}</p>
+          </div>
+          <div className="text-3xl font-bold text-primary">{health.score}<span className="text-lg text-muted-foreground">/100</span></div>
+        </div>
+        <div className="bg-gradient-to-br from-secondary/50 to-secondary/20 border border-border p-6 rounded-2xl flex items-center justify-between">
+          <div>
+            <h3 className="text-foreground font-semibold mb-1">Projected Month-End</h3>
+            <p className="text-sm text-muted-foreground">Based on your current run-rate</p>
+          </div>
+          <div className="text-3xl font-bold text-foreground">₹{Math.round(prediction.predicted_spend).toLocaleString()}</div>
+        </div>
       </div>
 
       <RecentTransactions transactions={transactions} />
