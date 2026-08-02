@@ -46,10 +46,10 @@ export default function AnalyticsPage() {
 
   return (
     <DashboardLayout>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
-          <p className="text-muted-foreground mt-1">Visualize your financial trends and cash flow.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Analytics</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Visualize your financial trends and cash flow.</p>
         </div>
         <div className="flex bg-muted p-1 rounded-xl">
           <button 

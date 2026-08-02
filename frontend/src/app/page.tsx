@@ -53,14 +53,14 @@ export default function Home() {
 
   return (
     <DashboardLayout>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Welcome back, Soham</h1>
-          <p className="text-muted-foreground mt-1">Here's your financial overview for this month.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Welcome back, Soham</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Here's your financial overview for this month.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm"
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm text-sm md:text-base w-full sm:w-auto justify-center"
         >
           <Plus size={18} />
           New Transaction
@@ -90,19 +90,19 @@ export default function Home() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-6 rounded-2xl flex items-center justify-between">
-          <div>
-            <h3 className="text-primary font-semibold mb-1">Financial Health Score</h3>
-            <p className="text-sm text-muted-foreground">{health.summary}</p>
+        <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-4 md:p-6 rounded-2xl flex items-center justify-between">
+          <div className="mr-3">
+            <h3 className="text-primary font-semibold mb-1 text-sm md:text-base">Financial Health Score</h3>
+            <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">{health.summary}</p>
           </div>
-          <div className="text-3xl font-bold text-primary">{health.score}<span className="text-lg text-muted-foreground">/100</span></div>
+          <div className="text-2xl md:text-3xl font-bold text-primary">{health.score}<span className="text-base md:text-lg text-muted-foreground">/100</span></div>
         </div>
-        <div className="bg-gradient-to-br from-secondary/50 to-secondary/20 border border-border p-6 rounded-2xl flex items-center justify-between">
+        <div className="bg-gradient-to-br from-secondary/50 to-secondary/20 border border-border p-4 md:p-6 rounded-2xl flex items-center justify-between">
           <div>
-            <h3 className="text-foreground font-semibold mb-1">Projected Month-End</h3>
-            <p className="text-sm text-muted-foreground">Based on your current run-rate</p>
+            <h3 className="text-foreground font-semibold mb-1 text-sm md:text-base">Projected Month-End</h3>
+            <p className="text-xs md:text-sm text-muted-foreground">Based on your current run-rate</p>
           </div>
-          <div className="text-3xl font-bold text-foreground">₹{Math.round(prediction.predicted_spend).toLocaleString()}</div>
+          <div className="text-2xl md:text-3xl font-bold text-foreground">₹{Math.round(prediction.predicted_spend).toLocaleString()}</div>
         </div>
       </div>
 

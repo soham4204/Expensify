@@ -36,13 +36,13 @@ export default function BudgetsPage() {
 
   return (
     <DashboardLayout>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Budgets</h1>
-          <p className="text-muted-foreground mt-1">Keep track of your spending limits.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Budgets</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Keep track of your spending limits.</p>
         </div>
         <button 
-          className="bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm"
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm text-sm md:text-base w-full sm:w-auto justify-center"
         >
           <Plus size={18} />
           Create Budget

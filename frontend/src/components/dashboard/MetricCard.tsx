@@ -10,15 +10,15 @@ interface MetricCardProps {
 
 export function MetricCard({ title, amount, trend, isPositive, icon }: MetricCardProps) {
   return (
-    <div className="bg-card p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start mb-4">
-        <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
-        <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-foreground">
+    <div className="bg-card p-4 md:p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-3 md:mb-4">
+        <h3 className="text-xs md:text-sm font-medium text-muted-foreground">{title}</h3>
+        <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-secondary flex items-center justify-center text-foreground">
           {icon}
         </div>
       </div>
       <div className="mb-1">
-        <span className="text-3xl font-bold text-foreground">{amount}</span>
+        <span className="text-2xl md:text-3xl font-bold text-foreground">{amount}</span>
       </div>
       {trend && (
         <div className="flex items-center gap-2">

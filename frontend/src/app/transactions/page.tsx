@@ -46,9 +46,9 @@ export default function TransactionsPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
-        <p className="text-muted-foreground mt-1">Manage your expenses, income, and recurring bills.</p>
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground">Transactions</h1>
+        <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage your expenses, income, and recurring bills.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -61,7 +61,7 @@ export default function TransactionsPage() {
         </div>
 
         <div className="lg:col-span-1">
-          <div className="bg-card rounded-2xl border border-border shadow-sm p-6 mt-8">
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-4 md:p-6 mt-0 lg:mt-8">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-semibold text-foreground">Recurring</h2>
               <button className="text-sm text-primary font-medium hover:underline">Manage</button>
