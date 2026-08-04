@@ -1,10 +1,12 @@
 import { useState, useRef } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { X, Sparkles, Upload, Camera } from "lucide-react";
 
 export function TransactionModal({ isOpen, onClose, onSubmit }: { isOpen: boolean; onClose: () => void; onSubmit: () => void }) {
   const [mode, setMode] = useState<"manual" | "ai" | "receipt">("ai");
   const [aiText, setAiText] = useState("");
   const [loading, setLoading] = useState(false);
+  const { token } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -15,7 +17,10 @@ export function TransactionModal({ isOpen, onClose, onSubmit }: { isOpen: boolea
     try {
       const res = await fetch(`${API_URL}/ai/parse-transaction`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ text: aiText })
       });
       if (res.ok) {
@@ -42,6 +47,7 @@ export function TransactionModal({ isOpen, onClose, onSubmit }: { isOpen: boolea
     try {
       const res = await fetch(`${API_URL}/ai/scan-receipt`, {
         method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
         body: formData
       });
       if (res.ok) {

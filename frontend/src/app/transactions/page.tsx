@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { RecentTransactions, Transaction } from "@/components/dashboard/RecentTransactions";
 import { ImportStatementModal } from "@/components/dashboard/ImportStatementModal";
@@ -11,15 +12,19 @@ export default function TransactionsPage() {
   const [recurring, setRecurring] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [filter, setFilter] = useState("All");
+  const { token } = useAuth();
 
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
     async function fetchData() {
+      if (!token) return;
       try {
+        const headers = { Authorization: `Bearer ${token}` };
         const [expensesRes, recurringRes] = await Promise.all([
-          fetch(`${API_URL}/expenses/?limit=50`),
-          fetch(`${API_URL}/recurring/`)
+          fetch(`${API_URL}/expenses/?limit=50`, { headers }),
+          fetch(`${API_URL}/recurring/`, { headers })
         ]);
 
         if (expensesRes.ok) {
@@ -45,7 +50,7 @@ export default function TransactionsPage() {
     }
 
     fetchData();
-  }, []);
+  }, [token]);
 
   return (
     <DashboardLayout>

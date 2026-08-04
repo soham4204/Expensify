@@ -15,6 +15,8 @@ class Expense(Base):
     
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     category = relationship("Category")
     account = relationship("Account")
+    user = relationship("User")

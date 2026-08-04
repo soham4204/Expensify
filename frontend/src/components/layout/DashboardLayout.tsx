@@ -1,9 +1,12 @@
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
-import { Sparkles } from "lucide-react";
+import { Sparkles, LogOut } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { logout } = useAuth();
+
   return (
     <div className="flex min-h-screen bg-background font-sans text-foreground">
       <Sidebar />

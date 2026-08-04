@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Plus } from "lucide-react";
 
@@ -12,15 +13,19 @@ interface BudgetUsage {
 }
 
 export default function BudgetsPage() {
-  const [budgets, setBudgets] = useState<BudgetUsage[]>([]);
+  const [budgets, setBudgets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { token } = useAuth();
 
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
     async function fetchBudgets() {
+      if (!token) return;
       try {
-        const res = await fetch(`${API_URL}/budgets/usage`);
+        const res = await fetch(`${API_URL}/budgets/usage`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (res.ok) {
           setBudgets(await res.json());
         }
@@ -32,7 +37,7 @@ export default function BudgetsPage() {
     }
 
     fetchBudgets();
-  }, []);
+  }, [token]);
 
   return (
     <DashboardLayout>

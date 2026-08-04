@@ -8,11 +8,13 @@ from core.database import get_db
 from models.expense import Expense as ExpenseModel
 from models.income import Income as IncomeModel
 from models.category import Category as CategoryModel
+from models.user import User
+from api.deps import get_current_user
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 @router.get("/spending-by-category")
-def get_spending_by_category(db: Session = Depends(get_db)):
+def get_spending_by_category(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Spend by category for current month
     today = date.today()
     start_date = today.replace(day=1)
@@ -21,14 +23,14 @@ def get_spending_by_category(db: Session = Depends(get_db)):
         CategoryModel.name,
         func.sum(ExpenseModel.amount).label("total")
     ).join(ExpenseModel, CategoryModel.id == ExpenseModel.category_id)\
-     .filter(ExpenseModel.date >= start_date)\
+     .filter(ExpenseModel.date >= start_date, ExpenseModel.user_id == current_user.id)\
      .group_by(CategoryModel.name)\
      .all()
 
     return [{"name": row.name, "value": float(row.total)} for row in results]
 
 @router.get("/cashflow")
-def get_monthly_cashflow(db: Session = Depends(get_db)):
+def get_monthly_cashflow(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Last 6 months cashflow
     today = date.today()
     data = []
@@ -42,12 +44,14 @@ def get_monthly_cashflow(db: Session = Depends(get_db)):
         
         income = db.query(func.sum(IncomeModel.amount)).filter(
             IncomeModel.date >= start_of_month,
-            IncomeModel.date <= end_of_month
+            IncomeModel.date <= end_of_month,
+            IncomeModel.user_id == current_user.id
         ).scalar() or 0.0
         
         expense = db.query(func.sum(ExpenseModel.amount)).filter(
             ExpenseModel.date >= start_of_month,
-            ExpenseModel.date <= end_of_month
+            ExpenseModel.date <= end_of_month,
+            ExpenseModel.user_id == current_user.id
         ).scalar() or 0.0
 
         month_name = start_of_month.strftime("%b %Y")

@@ -13,6 +13,8 @@ from models.expense import Expense as ExpenseModel
 from models.account import Account as AccountModel
 from models.category import Category as CategoryModel
 from schemas.expense import Expense
+from models.user import User
+from api.deps import get_current_user
 
 from google import genai
 from google.genai import types
@@ -69,7 +71,7 @@ class StatementData(BaseModel):
     transactions: List[ParsedStatementTransaction]
 
 @router.post("/parse-transaction", response_model=Expense)
-def parse_transaction(req: ParseTransactionRequest, db: Session = Depends(get_db)):
+def parse_transaction(req: ParseTransactionRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not client:
         raise HTTPException(status_code=500, detail="Gemini API Key not configured")
     
@@ -97,20 +99,20 @@ def parse_transaction(req: ParseTransactionRequest, db: Session = Depends(get_db
         parsed = json.loads(response.text)
         
         # Resolve Account
-        account = db.query(AccountModel).filter(AccountModel.name.ilike(f"%{parsed['account_name']}%")).first()
+        account = db.query(AccountModel).filter(AccountModel.name.ilike(f"%{parsed['account_name']}%"), AccountModel.user_id == current_user.id).first()
         if not account:
             # Default fallback account or create it
-            account = db.query(AccountModel).first()
+            account = db.query(AccountModel).filter(AccountModel.user_id == current_user.id).first()
             if not account:
-                account = AccountModel(name="Cash", balance=0.0, type="Cash")
+                account = AccountModel(name="Cash", balance=0.0, type="Cash", user_id=current_user.id)
                 db.add(account)
                 db.commit()
                 db.refresh(account)
                 
         # Resolve Category
-        category = db.query(CategoryModel).filter(CategoryModel.name.ilike(f"%{parsed['category_name']}%")).first()
+        category = db.query(CategoryModel).filter(CategoryModel.name.ilike(f"%{parsed['category_name']}%"), CategoryModel.user_id == current_user.id).first()
         if not category:
-            category = CategoryModel(name=parsed['category_name'], description="AI Generated")
+            category = CategoryModel(name=parsed['category_name'], description="AI Generated", user_id=current_user.id)
             db.add(category)
             db.commit()
             db.refresh(category)
@@ -128,7 +130,8 @@ def parse_transaction(req: ParseTransactionRequest, db: Session = Depends(get_db
             date=tx_date,
             account_id=account.id,
             category_id=category.id,
-            notes=parsed.get('notes', "AI generated")
+            notes=parsed.get('notes', "AI generated"),
+            user_id=current_user.id
         )
         
         account.balance -= parsed['amount']
@@ -144,18 +147,18 @@ def parse_transaction(req: ParseTransactionRequest, db: Session = Depends(get_db
 
 
 @router.post("/chat", response_model=ChatResponse)
-def ai_chat(req: ChatRequest, db: Session = Depends(get_db)):
+def ai_chat(req: ChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not client:
         raise HTTPException(status_code=500, detail="Gemini API Key not configured")
         
     # Get current financial context
-    total_balance = db.query(func.sum(AccountModel.balance)).scalar() or 0.0
+    total_balance = db.query(func.sum(AccountModel.balance)).filter(AccountModel.user_id == current_user.id).scalar() or 0.0
     
     first_day_of_month = date.today().replace(day=1)
-    month_spending = db.query(func.sum(ExpenseModel.amount)).filter(ExpenseModel.date >= first_day_of_month).scalar() or 0.0
+    month_spending = db.query(func.sum(ExpenseModel.amount)).filter(ExpenseModel.date >= first_day_of_month, ExpenseModel.user_id == current_user.id).scalar() or 0.0
     
     # Recent transactions
-    recent_txs = db.query(ExpenseModel).order_by(ExpenseModel.date.desc()).limit(5).all()
+    recent_txs = db.query(ExpenseModel).filter(ExpenseModel.user_id == current_user.id).order_by(ExpenseModel.date.desc()).limit(5).all()
     tx_list_str = "\n".join([f"- {t.date}: ₹{t.amount} at {t.merchant}" for t in recent_txs])
 
     system_instruction = f"""
@@ -179,7 +182,7 @@ def ai_chat(req: ChatRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/scan-receipt", response_model=Expense)
-async def scan_receipt(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def scan_receipt(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not client:
         raise HTTPException(status_code=500, detail="Gemini API Key not configured")
         
@@ -216,18 +219,18 @@ async def scan_receipt(file: UploadFile = File(...), db: Session = Depends(get_d
         )
         
         parsed = json.loads(response.text)
-        account = db.query(AccountModel).filter(AccountModel.name.ilike(f"%{parsed['account_name']}%")).first()
+        account = db.query(AccountModel).filter(AccountModel.name.ilike(f"%{parsed['account_name']}%"), AccountModel.user_id == current_user.id).first()
         if not account:
-            account = db.query(AccountModel).first()
+            account = db.query(AccountModel).filter(AccountModel.user_id == current_user.id).first()
             if not account:
-                account = AccountModel(name="Cash", balance=0.0, type="Cash")
+                account = AccountModel(name="Cash", balance=0.0, type="Cash", user_id=current_user.id)
                 db.add(account)
                 db.commit()
                 db.refresh(account)
                 
-        category = db.query(CategoryModel).filter(CategoryModel.name.ilike(f"%{parsed['category_name']}%")).first()
+        category = db.query(CategoryModel).filter(CategoryModel.name.ilike(f"%{parsed['category_name']}%"), CategoryModel.user_id == current_user.id).first()
         if not category:
-            category = CategoryModel(name=parsed['category_name'], description="AI Generated")
+            category = CategoryModel(name=parsed['category_name'], description="AI Generated", user_id=current_user.id)
             db.add(category)
             db.commit()
             db.refresh(category)
@@ -244,7 +247,8 @@ async def scan_receipt(file: UploadFile = File(...), db: Session = Depends(get_d
             account_id=account.id,
             category_id=category.id,
             notes=parsed.get('notes', "AI receipt scan"),
-            receipt_url=file_url
+            receipt_url=file_url,
+            user_id=current_user.id
         )
         
         account.balance -= parsed['amount']
@@ -266,12 +270,12 @@ class HealthResponseSchema(BaseModel):
     summary: str
 
 @router.get("/health", response_model=HealthScore)
-def get_health_score(db: Session = Depends(get_db)):
+def get_health_score(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not client:
         raise HTTPException(status_code=500, detail="Gemini API Key not configured")
         
-    total_balance = db.query(func.sum(AccountModel.balance)).scalar() or 0.0
-    recent_expenses = db.query(func.sum(ExpenseModel.amount)).scalar() or 0.0
+    total_balance = db.query(func.sum(AccountModel.balance)).filter(AccountModel.user_id == current_user.id).scalar() or 0.0
+    recent_expenses = db.query(func.sum(ExpenseModel.amount)).filter(ExpenseModel.user_id == current_user.id).scalar() or 0.0
     
     prompt = f"Given a total balance of {total_balance} and recent expenses of {recent_expenses}, output a financial health score (0-100) and a brief 1-sentence summary as JSON."
     
@@ -293,9 +297,9 @@ class Prediction(BaseModel):
     predicted_spend: float
 
 @router.get("/predictions", response_model=Prediction)
-def get_predictions(db: Session = Depends(get_db)):
+def get_predictions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     first_day = date.today().replace(day=1)
-    spent = db.query(func.sum(ExpenseModel.amount)).filter(ExpenseModel.date >= first_day).scalar() or 0.0
+    spent = db.query(func.sum(ExpenseModel.amount)).filter(ExpenseModel.date >= first_day, ExpenseModel.user_id == current_user.id).scalar() or 0.0
     days_passed = date.today().day
     if days_passed == 0:
         days_passed = 1
@@ -306,12 +310,12 @@ class ReportResponse(BaseModel):
     markdown: str
 
 @router.get("/generate-report", response_model=ReportResponse)
-def generate_weekly_report(db: Session = Depends(get_db)):
+def generate_weekly_report(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not client:
         raise HTTPException(status_code=500, detail="Gemini API Key not configured")
         
     last_week = date.today() - datetime.timedelta(days=7)
-    recent = db.query(ExpenseModel).filter(ExpenseModel.date >= last_week).all()
+    recent = db.query(ExpenseModel).filter(ExpenseModel.date >= last_week, ExpenseModel.user_id == current_user.id).all()
     tx_str = "\n".join([f"- {t.date}: ₹{t.amount} at {t.merchant} (Category {t.category_id})" for t in recent])
     
     prompt = f"Generate a weekly financial report in Markdown format based on these expenses:\n{tx_str}\nInclude sections: Summary, Top Expenses, Warnings, Achievements. Make it sound encouraging."
@@ -323,7 +327,7 @@ def generate_weekly_report(db: Session = Depends(get_db)):
     return ReportResponse(markdown=response.text)
 
 @router.post("/import-statement", response_model=List[Expense])
-async def import_statement(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def import_statement(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not client:
         raise HTTPException(status_code=500, detail="Gemini API Key not configured")
         
@@ -354,9 +358,9 @@ async def import_statement(file: UploadFile = File(...), db: Session = Depends(g
         saved_expenses = []
         
         # We assume statements go to a default bank account, or create one
-        account = db.query(AccountModel).filter(AccountModel.type == "Bank").first()
+        account = db.query(AccountModel).filter(AccountModel.type == "Bank", AccountModel.user_id == current_user.id).first()
         if not account:
-            account = AccountModel(name="Main Bank", balance=0.0, type="Bank")
+            account = AccountModel(name="Main Bank", balance=0.0, type="Bank", user_id=current_user.id)
             db.add(account)
             db.commit()
             db.refresh(account)
@@ -367,9 +371,9 @@ async def import_statement(file: UploadFile = File(...), db: Session = Depends(g
                 # In a real app we'd save to IncomeModel. We'll skip incomes for this return payload.
                 continue
                 
-            category = db.query(CategoryModel).filter(CategoryModel.name.ilike(f"%{tx['category_name']}%")).first()
+            category = db.query(CategoryModel).filter(CategoryModel.name.ilike(f"%{tx['category_name']}%"), CategoryModel.user_id == current_user.id).first()
             if not category:
-                category = CategoryModel(name=tx['category_name'], description="AI Generated")
+                category = CategoryModel(name=tx['category_name'], description="AI Generated", user_id=current_user.id)
                 db.add(category)
                 db.commit()
                 db.refresh(category)
@@ -385,7 +389,8 @@ async def import_statement(file: UploadFile = File(...), db: Session = Depends(g
                 date=tx_date,
                 account_id=account.id,
                 category_id=category.id,
-                notes="Statement Import"
+                notes="Statement Import",
+                user_id=current_user.id
             )
             
             account.balance -= tx['amount']

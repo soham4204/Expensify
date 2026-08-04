@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { Wallet, TrendingUp, TrendingDown, Plus, Trash2 } from "lucide-react";
@@ -20,14 +21,19 @@ interface Investment {
 export default function InvestmentsPage() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const { token } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState({ asset_name: "", ticker_symbol: "", quantity: "", avg_purchase_price: "" });
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const fetchInvestments = async () => {
+    if (!token) return;
     try {
-      const res = await fetch(`${API_URL}/investments/`);
+      const res = await fetch(`${API_URL}/investments/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (res.ok) setInvestments(await res.json());
     } catch (err) {
       console.error(err);
@@ -38,7 +44,7 @@ export default function InvestmentsPage() {
 
   useEffect(() => {
     fetchInvestments();
-  }, []);
+  }, [token]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +58,10 @@ export default function InvestmentsPage() {
       };
       const res = await fetch(`${API_URL}/investments/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(payload)
       });
       if (res.ok) {
@@ -70,7 +79,10 @@ export default function InvestmentsPage() {
     if (!confirm("Are you sure?")) return;
     setLoading(true);
     try {
-      await fetch(`${API_URL}/investments/${id}`, { method: "DELETE" });
+      await fetch(`${API_URL}/investments/${id}`, { 
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
       await fetchInvestments();
     } catch (err) {
       console.error(err);

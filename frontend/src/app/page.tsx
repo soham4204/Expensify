@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { RecentTransactions, Transaction } from "@/components/dashboard/RecentTransactions";
@@ -14,17 +15,20 @@ export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { token } = useAuth();
 
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
     async function fetchData() {
+      if (!token) return;
       try {
+        const headers = { Authorization: `Bearer ${token}` };
         const [summaryRes, expensesRes, healthRes, predRes] = await Promise.all([
-          fetch(`${API_URL}/dashboard/summary`),
-          fetch(`${API_URL}/expenses/?limit=5`),
-          fetch(`${API_URL}/ai/health`),
-          fetch(`${API_URL}/ai/predictions`)
+          fetch(`${API_URL}/dashboard/summary`, { headers }),
+          fetch(`${API_URL}/expenses/?limit=5`, { headers }),
+          fetch(`${API_URL}/ai/health`, { headers }),
+          fetch(`${API_URL}/ai/predictions`, { headers })
         ]);
 
         if (summaryRes.ok) setSummary(await summaryRes.json());
@@ -49,7 +53,7 @@ export default function Home() {
     }
 
     fetchData();
-  }, []);
+  }, [token]);
 
   return (
     <DashboardLayout>

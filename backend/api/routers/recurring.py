@@ -11,6 +11,8 @@ from models.income import Income as IncomeModel
 from models.account import Account as AccountModel
 from schemas.recurring import RecurringTransaction, RecurringTransactionCreate
 from core.config import settings
+from models.user import User
+from api.deps import get_current_user
 
 # If using Upstash Redis for locking/state:
 from upstash_redis import Redis
@@ -26,16 +28,16 @@ except Exception:
 router = APIRouter(prefix="/recurring", tags=["Recurring Transactions"])
 
 @router.post("/", response_model=RecurringTransaction)
-def create_recurring(recurring: RecurringTransactionCreate, db: Session = Depends(get_db)):
-    new_rec = RecurringModel(**recurring.model_dump())
+def create_recurring(recurring: RecurringTransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    new_rec = RecurringModel(**recurring.model_dump(), user_id=current_user.id)
     db.add(new_rec)
     db.commit()
     db.refresh(new_rec)
     return new_rec
 
 @router.get("/", response_model=List[RecurringTransaction])
-def read_recurring(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return db.query(RecurringModel).offset(skip).limit(limit).all()
+def read_recurring(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(RecurringModel).filter(RecurringModel.user_id == current_user.id).offset(skip).limit(limit).all()
 
 def process_due_recurring_transactions(db: Session):
     today = date.today()
@@ -52,7 +54,8 @@ def process_due_recurring_transactions(db: Session):
                 payment_method="Recurring",
                 account_id=tx.account_id,
                 category_id=tx.category_id,
-                notes="Auto-generated recurring expense"
+                notes="Auto-generated recurring expense",
+                user_id=tx.user_id
             )
             # Update account balance
             account = db.query(AccountModel).filter(AccountModel.id == tx.account_id).first()
@@ -64,7 +67,8 @@ def process_due_recurring_transactions(db: Session):
                 source=tx.merchant_or_source,
                 date=today,
                 account_id=tx.account_id,
-                notes="Auto-generated recurring income"
+                notes="Auto-generated recurring income",
+                user_id=tx.user_id
             )
             account = db.query(AccountModel).filter(AccountModel.id == tx.account_id).first()
             if account:

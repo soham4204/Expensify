@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, Wallet, PieChart, Sparkles, LineChart, Download, Menu, X, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Receipt, Wallet, PieChart, Sparkles, LineChart, Download, Menu, X, TrendingUp, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -36,6 +38,16 @@ export function Sidebar() {
           <Link href="/chat" className="block w-full py-2 bg-primary text-primary-foreground text-center rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
             Open Chat
           </Link>
+        </div>
+
+        <div className="mt-4">
+          <button 
+            onClick={logout}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors font-medium text-sm"
+          >
+            <LogOut size={20} />
+            Logout
+          </button>
         </div>
       </aside>
 

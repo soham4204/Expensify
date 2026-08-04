@@ -1,8 +1,10 @@
 import { useState, useRef } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { X, FileText, Upload, Sparkles } from "lucide-react";
 
 export function ImportStatementModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
+  const { token } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -19,6 +21,7 @@ export function ImportStatementModal({ isOpen, onClose, onSuccess }: { isOpen: b
     try {
       const res = await fetch(`${API_URL}/ai/import-statement`, {
         method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
         body: formData
       });
       if (res.ok) {

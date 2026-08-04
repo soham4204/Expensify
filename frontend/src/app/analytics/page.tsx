@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -14,6 +15,7 @@ export default function AnalyticsPage() {
   const [cashflowData, setCashflowData] = useState([]);
   const [report, setReport] = useState("");
   const [loading, setLoading] = useState(true);
+  const { token } = useAuth();
 
   const COLORS = ['#C29DC2', '#D9B5DD', '#E4C4E2', '#EED3E6', '#A985B2'];
 
@@ -21,11 +23,13 @@ export default function AnalyticsPage() {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
     async function fetchAnalytics() {
+      if (!token) return;
       try {
+        const headers = { Authorization: `Bearer ${token}` };
         const [spendingRes, cashflowRes, reportRes] = await Promise.all([
-          fetch(`${API_URL}/analytics/spending-by-category`),
-          fetch(`${API_URL}/analytics/cashflow`),
-          fetch(`${API_URL}/ai/generate-report`)
+          fetch(`${API_URL}/analytics/spending-by-category`, { headers }),
+          fetch(`${API_URL}/analytics/cashflow`, { headers }),
+          fetch(`${API_URL}/ai/generate-report`, { headers })
         ]);
 
         if (spendingRes.ok) setSpendingData(await spendingRes.json());
@@ -42,7 +46,7 @@ export default function AnalyticsPage() {
     }
 
     fetchAnalytics();
-  }, []);
+  }, [token]);
 
   return (
     <DashboardLayout>

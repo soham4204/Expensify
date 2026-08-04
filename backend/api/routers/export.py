@@ -8,13 +8,15 @@ from datetime import date
 from core.database import get_db
 from models.expense import Expense as ExpenseModel
 from models.income import Income as IncomeModel
+from models.user import User
+from api.deps import get_current_user
 
 router = APIRouter(prefix="/export", tags=["Exports"])
 
 @router.get("/csv")
-def export_transactions_csv(db: Session = Depends(get_db)):
-    expenses = db.query(ExpenseModel).all()
-    incomes = db.query(IncomeModel).all()
+def export_transactions_csv(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    expenses = db.query(ExpenseModel).filter(ExpenseModel.user_id == current_user.id).all()
+    incomes = db.query(IncomeModel).filter(IncomeModel.user_id == current_user.id).all()
     
     output = io.StringIO()
     writer = csv.writer(output)

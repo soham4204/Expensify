@@ -14,6 +14,8 @@ class RecurringTransaction(Base):
     
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     account = relationship("Account")
     category = relationship("Category")
+    user = relationship("User")

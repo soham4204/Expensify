@@ -11,5 +11,7 @@ class Income(Base):
     date = Column(Date, nullable=False)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
     notes = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     account = relationship("Account")
+    user = relationship("User")
