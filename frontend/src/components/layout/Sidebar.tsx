@@ -29,7 +29,7 @@ export function Sidebar() {
           <NavItem href="/investments" icon={<TrendingUp size={20} />} label="Investments" active={pathname === "/investments"} />
           <NavItem href="/budgets" icon={<PieChart size={20} />} label="Budgets" active={pathname === "/budgets"} />
           <NavItem href="/analytics" icon={<LineChart size={20} />} label="Analytics" active={pathname === "/analytics"} />
-          <NavItem href="http://localhost:8000/export/csv" icon={<Download size={20} />} label="Export Data" />
+          <NavItem href="http://localhost:8001/export/csv" icon={<Download size={20} />} label="Export Data" />
         </nav>
 
         <div className="mt-auto p-4 rounded-xl bg-secondary/50 border border-border">

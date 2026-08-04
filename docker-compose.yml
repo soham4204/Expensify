@@ -19,7 +19,7 @@ services:
     build:
       context: ./backend
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-expensify}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-supersecret_change_me_in_production}
@@ -40,7 +40,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8001
     depends_on:
       - backend
 
