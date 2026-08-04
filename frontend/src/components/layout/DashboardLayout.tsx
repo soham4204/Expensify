@@ -1,11 +1,25 @@
+"use client";
+
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
-import { Sparkles, LogOut } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { logout } = useAuth();
+  const { isLoading } = useAuth();
+
+  // Show a full-screen spinner while auth state is being resolved to prevent flicker
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-muted-foreground">
+          <Sparkles size={36} className="animate-pulse text-primary" />
+          <p className="text-sm font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background font-sans text-foreground">

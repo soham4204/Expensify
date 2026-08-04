@@ -5,52 +5,77 @@ import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { RecentTransactions, Transaction } from "@/components/dashboard/RecentTransactions";
 import { ImportStatementModal } from "@/components/dashboard/ImportStatementModal";
-import { FileText } from "lucide-react";
+import { RecurringModal } from "@/components/dashboard/RecurringModal";
+import { FileText, Plus } from "lucide-react";
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [recurring, setRecurring] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [filter, setFilter] = useState("All");
+  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
+  const [filter, setFilter] = useState<"All" | "Income" | "Expense">("All");
   const { token } = useAuth();
 
-  useEffect(() => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-    async function fetchData() {
-      if (!token) return;
-      try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const [expensesRes, recurringRes] = await Promise.all([
-          fetch(`${API_URL}/expenses/?limit=50`, { headers }),
-          fetch(`${API_URL}/recurring/`, { headers })
-        ]);
+  const fetchData = async () => {
+    if (!token) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [expensesRes, incomesRes, recurringRes] = await Promise.all([
+        fetch(`${API_URL}/expenses/?limit=100`, { headers }),
+        fetch(`${API_URL}/incomes/?limit=100`, { headers }),
+        fetch(`${API_URL}/recurring/`, { headers })
+      ]);
 
-        if (expensesRes.ok) {
-          const expensesData = await expensesRes.json();
-          setTransactions(expensesData.map((e: any) => ({
-            id: e.id,
-            title: e.merchant,
-            date: e.date,
-            amount: e.amount,
-            type: "expense",
-            category: "General"
-          })));
-        }
+      const merged: Transaction[] = [];
 
-        if (recurringRes.ok) {
-          setRecurring(await recurringRes.json());
-        }
-      } catch (err) {
-        console.error("Failed to fetch transactions", err);
-      } finally {
-        setLoading(false);
+      if (expensesRes.ok) {
+        const expensesData = await expensesRes.json();
+        expensesData.forEach((e: any) => merged.push({
+          id: e.id,
+          title: e.merchant,
+          date: e.date,
+          amount: e.amount,
+          type: "expense",
+          category: "General"
+        }));
       }
-    }
 
+      if (incomesRes.ok) {
+        const incomesData = await incomesRes.json();
+        incomesData.forEach((e: any) => merged.push({
+          id: e.id + 100000,
+          title: e.source,
+          date: e.date,
+          amount: e.amount,
+          type: "income",
+          category: "Income"
+        }));
+      }
+
+      // Sort by date descending
+      merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setTransactions(merged);
+
+      if (recurringRes.ok) {
+        setRecurring(await recurringRes.json());
+      }
+    } catch (err) {
+      console.error("Failed to fetch transactions", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [token]);
+
+  const filteredTransactions = filter === "All"
+    ? transactions
+    : transactions.filter(tx => tx.type === filter.toLowerCase());
 
   return (
     <DashboardLayout>
@@ -68,12 +93,29 @@ export default function TransactionsPage() {
         </button>
       </div>
 
+      {/* Filter Tabs */}
+      <div className="flex gap-2 mb-6">
+        {(["All", "Income", "Expense"] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              filter === f
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           {loading ? (
             <div className="flex items-center justify-center h-64 text-muted-foreground">Loading...</div>
           ) : (
-            <RecentTransactions transactions={transactions} />
+            <RecentTransactions transactions={filteredTransactions} />
           )}
         </div>
 
@@ -81,7 +123,6 @@ export default function TransactionsPage() {
           <div className="bg-card rounded-2xl border border-border shadow-sm p-4 md:p-6 mt-0 lg:mt-8">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-semibold text-foreground">Recurring</h2>
-              <button className="text-sm text-primary font-medium hover:underline">Manage</button>
             </div>
             
             <div className="space-y-4">
@@ -100,7 +141,11 @@ export default function TransactionsPage() {
               )}
             </div>
             
-            <button className="w-full mt-6 py-2 bg-secondary text-secondary-foreground font-medium rounded-xl text-sm hover:bg-secondary/80 transition-colors">
+            <button
+              onClick={() => setIsRecurringModalOpen(true)}
+              className="w-full mt-6 py-2 bg-secondary text-secondary-foreground font-medium rounded-xl text-sm hover:bg-secondary/80 transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus size={16} />
               Add Recurring
             </button>
           </div>
@@ -110,7 +155,13 @@ export default function TransactionsPage() {
       <ImportStatementModal 
         isOpen={isImportModalOpen} 
         onClose={() => setIsImportModalOpen(false)} 
-        onSuccess={() => window.location.reload()} 
+        onSuccess={() => fetchData()}
+      />
+
+      <RecurringModal
+        isOpen={isRecurringModalOpen}
+        onClose={() => setIsRecurringModalOpen(false)}
+        onSuccess={() => fetchData()}
       />
     </DashboardLayout>
   );

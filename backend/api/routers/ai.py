@@ -300,9 +300,7 @@ class Prediction(BaseModel):
 def get_predictions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     first_day = date.today().replace(day=1)
     spent = db.query(func.sum(ExpenseModel.amount)).filter(ExpenseModel.date >= first_day, ExpenseModel.user_id == current_user.id).scalar() or 0.0
-    days_passed = date.today().day
-    if days_passed == 0:
-        days_passed = 1
+    days_passed = max(date.today().day, 1)  # day is always 1-31 but guard against edge cases
     daily_rate = spent / days_passed
     return Prediction(predicted_spend=daily_rate * 30)
 
@@ -355,7 +353,7 @@ async def import_statement(file: UploadFile = File(...), db: Session = Depends(g
         parsed = json.loads(response.text)
         transactions = parsed.get('transactions', [])
         
-        saved_expenses = []
+        saved_transactions = []
         
         # We assume statements go to a default bank account, or create one
         account = db.query(AccountModel).filter(AccountModel.type == "Bank", AccountModel.user_id == current_user.id).first()
@@ -366,11 +364,6 @@ async def import_statement(file: UploadFile = File(...), db: Session = Depends(g
             db.refresh(account)
             
         for tx in transactions:
-            if tx.get('type') == 'income':
-                # For simplicity, we are returning expenses. 
-                # In a real app we'd save to IncomeModel. We'll skip incomes for this return payload.
-                continue
-                
             category = db.query(CategoryModel).filter(CategoryModel.name.ilike(f"%{tx['category_name']}%"), CategoryModel.user_id == current_user.id).first()
             if not category:
                 category = CategoryModel(name=tx['category_name'], description="AI Generated", user_id=current_user.id)
@@ -380,27 +373,39 @@ async def import_statement(file: UploadFile = File(...), db: Session = Depends(g
                 
             try:
                 tx_date = date.fromisoformat(tx['iso_date'])
-            except:
+            except Exception:
                 tx_date = date.today()
 
-            new_expense = ExpenseModel(
-                amount=tx['amount'],
-                merchant=tx['merchant'],
-                date=tx_date,
-                account_id=account.id,
-                category_id=category.id,
-                notes="Statement Import",
-                user_id=current_user.id
-            )
-            
-            account.balance -= tx['amount']
-            db.add(new_expense)
-            saved_expenses.append(new_expense)
+            if tx.get('type') == 'income':
+                from models.income import Income as IncomeModel
+                new_income = IncomeModel(
+                    amount=tx['amount'],
+                    source=tx['merchant'],
+                    date=tx_date,
+                    account_id=account.id,
+                    notes="Statement Import",
+                    user_id=current_user.id
+                )
+                account.balance += tx['amount']
+                db.add(new_income)
+            else:
+                new_expense = ExpenseModel(
+                    amount=tx['amount'],
+                    merchant=tx['merchant'],
+                    date=tx_date,
+                    account_id=account.id,
+                    category_id=category.id,
+                    notes="Statement Import",
+                    user_id=current_user.id
+                )
+                account.balance -= tx['amount']
+                db.add(new_expense)
+                saved_transactions.append(new_expense)
             
         db.commit()
-        for e in saved_expenses:
+        for e in saved_transactions:
             db.refresh(e)
             
-        return saved_expenses
+        return saved_transactions
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

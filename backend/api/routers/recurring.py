@@ -87,10 +87,14 @@ def process_due_recurring_transactions(db: Session):
     db.commit()
 
 @router.post("/process-due")
-def trigger_processing(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def trigger_processing(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    This endpoint simulates a cron job. In production, an external cron service
-    or Celery beat would call this or run the underlying logic.
+    Triggers processing of all due recurring transactions for the authenticated user.
+    In production, an external cron service would call this endpoint with a service token.
     Using Upstash Redis to ensure we only run this once a day if desired.
     """
     if redis:
@@ -103,6 +107,6 @@ def trigger_processing(background_tasks: BackgroundTasks, db: Session = Depends(
         # Set lock for 24h
         redis.setex(lock_key, 86400, "1")
 
-    # Run processing
+    # Run processing in background
     background_tasks.add_task(process_due_recurring_transactions, db)
     return {"message": "Processing triggered"}
