@@ -7,7 +7,7 @@ from core.database import get_db, engine, Base
 from models import category as category_model
 from schemas import category as category_schema
 
-from api.routers import account, income, expense, dashboard, budget, recurring, analytics, export, ai
+from api.routers import account, income, expense, dashboard, budget, recurring, analytics, export, ai, investment
 
 app = FastAPI(title="AI Expense Tracker API")
 
@@ -28,6 +28,7 @@ app.include_router(recurring.router)
 app.include_router(analytics.router)
 app.include_router(export.router)
 app.include_router(ai.router)
+app.include_router(investment.router)
 
 @app.get("/")
 def read_root():

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Receipt, Wallet, PieChart, Sparkles, LineChart, Download, Menu, X } from "lucide-react";
+import { LayoutDashboard, Receipt, Wallet, PieChart, Sparkles, LineChart, Download, Menu, X, TrendingUp } from "lucide-react";
 import { useState } from "react";
 
 export function Sidebar() {
@@ -24,6 +24,7 @@ export function Sidebar() {
           <NavItem href="/" icon={<LayoutDashboard size={20} />} label="Dashboard" active={pathname === "/"} />
           <NavItem href="/transactions" icon={<Receipt size={20} />} label="Transactions" active={pathname === "/transactions"} />
           <NavItem href="/accounts" icon={<Wallet size={20} />} label="Accounts" active={pathname === "/accounts"} />
+          <NavItem href="/investments" icon={<TrendingUp size={20} />} label="Investments" active={pathname === "/investments"} />
           <NavItem href="/budgets" icon={<PieChart size={20} />} label="Budgets" active={pathname === "/budgets"} />
           <NavItem href="/analytics" icon={<LineChart size={20} />} label="Analytics" active={pathname === "/analytics"} />
           <NavItem href="http://localhost:8000/export/csv" icon={<Download size={20} />} label="Export Data" />

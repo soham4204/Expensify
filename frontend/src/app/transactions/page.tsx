@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { RecentTransactions, Transaction } from "@/components/dashboard/RecentTransactions";
+import { ImportStatementModal } from "@/components/dashboard/ImportStatementModal";
+import { FileText } from "lucide-react";
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [recurring, setRecurring] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -46,9 +49,18 @@ export default function TransactionsPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground">Transactions</h1>
-        <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage your expenses, income, and recurring bills.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Transactions</h1>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage your expenses, income, and recurring bills.</p>
+        </div>
+        <button 
+          onClick={() => setIsImportModalOpen(true)}
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm text-sm md:text-base w-full sm:w-auto justify-center"
+        >
+          <FileText size={18} />
+          Import Statement
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -89,6 +101,12 @@ export default function TransactionsPage() {
           </div>
         </div>
       </div>
+      
+      <ImportStatementModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        onSuccess={() => window.location.reload()} 
+      />
     </DashboardLayout>
   );
 }

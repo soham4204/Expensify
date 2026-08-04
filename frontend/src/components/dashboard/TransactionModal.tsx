@@ -91,11 +91,11 @@ export function TransactionModal({ isOpen, onClose, onSubmit }: { isOpen: boolea
         {mode === "ai" && (
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-2">Just type what you spent</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-2">Type naturally or paste a bank SMS alert</label>
               <textarea 
                 value={aiText}
                 onChange={(e) => setAiText(e.target.value)}
-                placeholder="e.g. Paid 450 for coffee at Starbucks yesterday using HDFC" 
+                placeholder={"e.g. Paid 450 for coffee at Starbucks yesterday using HDFC\nOR\nDebited Rs. 500 from AC XX1234 at STARBUCKS on 12-Jul"} 
                 className="w-full h-32 bg-background border border-border rounded-xl p-4 text-foreground focus:border-primary outline-none transition-colors resize-none"
               />
             </div>

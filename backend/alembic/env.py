@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.database import SQLALCHEMY_DATABASE_URL, Base
-from models import category, account, income, expense, budget, recurring  # import models to register with Base
+from models import category, account, income, expense, budget, recurring, investment  # import models to register with Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

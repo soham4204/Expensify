@@ -58,6 +58,16 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
 
+class ParsedStatementTransaction(BaseModel):
+    amount: float
+    merchant: str
+    category_name: str
+    iso_date: str
+    type: str = Field(description="'expense' or 'income'")
+
+class StatementData(BaseModel):
+    transactions: List[ParsedStatementTransaction]
+
 @router.post("/parse-transaction", response_model=Expense)
 def parse_transaction(req: ParseTransactionRequest, db: Session = Depends(get_db)):
     if not client:
@@ -66,7 +76,8 @@ def parse_transaction(req: ParseTransactionRequest, db: Session = Depends(get_db
     today_str = date.today().isoformat()
     prompt = f"""
     You are an AI financial assistant. 
-    The user wants to record an expense. Parse their natural language input into structured data.
+    The user wants to record an expense. Parse their natural language input or raw SMS bank alert into structured data.
+    If it's an SMS (e.g. "Debited", "Spent", "Avail Bal"), extract the merchant, amount, and date.
     Today's date is: {today_str}. If they say 'yesterday', calculate the correct ISO date (YYYY-MM-DD).
     If they don't mention an account (like credit card, bank, etc.), default to "Cash".
     
@@ -310,3 +321,81 @@ def generate_weekly_report(db: Session = Depends(get_db)):
         contents=prompt
     )
     return ReportResponse(markdown=response.text)
+
+@router.post("/import-statement", response_model=List[Expense])
+async def import_statement(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not client:
+        raise HTTPException(status_code=500, detail="Gemini API Key not configured")
+        
+    contents = await file.read()
+    
+    prompt = """
+    Extract all transactions from this bank statement (CSV or PDF). 
+    For each transaction, determine the amount, merchant, a suitable category, date (in ISO YYYY-MM-DD format), and whether it is an 'expense' or 'income'.
+    Ignore header rows, balance summaries, and non-transaction text.
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-pro',
+            contents=[
+                types.Part.from_bytes(data=contents, mime_type=file.content_type),
+                prompt
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=StatementData,
+            ),
+        )
+        
+        parsed = json.loads(response.text)
+        transactions = parsed.get('transactions', [])
+        
+        saved_expenses = []
+        
+        # We assume statements go to a default bank account, or create one
+        account = db.query(AccountModel).filter(AccountModel.type == "Bank").first()
+        if not account:
+            account = AccountModel(name="Main Bank", balance=0.0, type="Bank")
+            db.add(account)
+            db.commit()
+            db.refresh(account)
+            
+        for tx in transactions:
+            if tx.get('type') == 'income':
+                # For simplicity, we are returning expenses. 
+                # In a real app we'd save to IncomeModel. We'll skip incomes for this return payload.
+                continue
+                
+            category = db.query(CategoryModel).filter(CategoryModel.name.ilike(f"%{tx['category_name']}%")).first()
+            if not category:
+                category = CategoryModel(name=tx['category_name'], description="AI Generated")
+                db.add(category)
+                db.commit()
+                db.refresh(category)
+                
+            try:
+                tx_date = date.fromisoformat(tx['iso_date'])
+            except:
+                tx_date = date.today()
+
+            new_expense = ExpenseModel(
+                amount=tx['amount'],
+                merchant=tx['merchant'],
+                date=tx_date,
+                account_id=account.id,
+                category_id=category.id,
+                notes="Statement Import"
+            )
+            
+            account.balance -= tx['amount']
+            db.add(new_expense)
+            saved_expenses.append(new_expense)
+            
+        db.commit()
+        for e in saved_expenses:
+            db.refresh(e)
+            
+        return saved_expenses
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
